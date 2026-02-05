@@ -38,7 +38,7 @@ TRACK_INFO_QUERY = """
                     id = :id
                 """
 
-CUE_POINT_QUERY = "SELECT hotcue,position,color from cues WHERE cues.type = 1 and cues.hotcue >= 0 and cues.track_id = :id"
+CUE_POINT_QUERY = "SELECT hotcue,position,type,length,color,label from cues WHERE (cues.type = 1 or cues.type = 4) and cues.hotcue >= 0 and cues.track_id = :id"
 
 global _db_location
 

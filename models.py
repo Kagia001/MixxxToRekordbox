@@ -231,9 +231,30 @@ class CuePoint(dict):
     cue_type: hex
     cue_index: int
     cue_position: float
+    cue_end: float
     cue_color: CueColour
-    cue_text: str = ""
+    cue_text: str
 
+    def __init__(
+        self,
+        cue_type: hex,
+        cue_index: int,
+        cue_position: float,
+        cue_end: float,
+        cue_color: CueColour,
+        cue_text: str = "",
+    ):
+        self.cue_index = cue_index
+        self.cue_position = cue_position
+        self.cue_end = cue_end
+        self.cue_color = cue_color
+        self.cue_text = cue_text
+
+        if (cue_type == 1):  # Regular cues are 0 in RB and 1 in Mixxx
+            self.cue_type = 0
+        else:
+            self.cue_type = cue_type
+       
 
 @dataclass
 class ExportedTrack:
@@ -271,4 +292,8 @@ class ExportedTrack:
             ]
         cue_point.cue_position += self.offset_sec
         cue_point.cue_position = max(0, cue_point.cue_position)
+        if cue_point.cue_type == 4: # Loop Hot Cue
+            cue_point.cue_end += self.offset_sec
+            cue_point.cue_end = max(0, cue_point.cue_end)
+
         self.cue_points.append(cue_point)
