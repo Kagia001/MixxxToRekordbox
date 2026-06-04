@@ -104,16 +104,22 @@ def get_cue_points(
 ) -> list[CuePoint]:
     return [
         CuePoint(
-            1,
+            cue_type,
             cue_index,
             mixxx_cuepos_to_ms(
                 int(cue_position),
                 samplerate,
                 channels,
             ),
+            mixxx_cuepos_to_ms(
+                int(cue_position) + int(length),
+                samplerate,
+                channels,
+            ),
             CueColour(hex(color)),
+            label,
         )
-        for (cue_index, cue_position, color) in sql_handlers.get_cue_points(track_id)
+        for (cue_index, cue_position, cue_type, length, color, label) in sql_handlers.get_cue_points(track_id)
     ]
 
 

@@ -1,6 +1,7 @@
+import platform
+
 from lxml import etree
 from lxml.builder import E
-import platform
 
 from models import ExportedTrack
 
@@ -61,10 +62,11 @@ def create_track_elm(track: ExportedTrack) -> etree.Element:
             Name=cue_point.cue_text.rstrip("\x00"),
             Num=str(cue_point.cue_index),
             Start=str(cue_point.cue_position / 1000),
+            End=str(cue_point.cue_end / 1000) if cue_point.cue_type == 4 else "0",
             Red=str(cue_point.cue_color.r_int),
             Green=str(cue_point.cue_color.g_int),
             Blue=str(cue_point.cue_color.b_int),
-            Type="0",
+            Type=str(cue_point.cue_type),
         )
         track_elm.append(cue_elm)
     return track_elm
