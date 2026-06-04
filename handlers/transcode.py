@@ -1,11 +1,10 @@
 import os
-from pydub import AudioSegment
-from pathlib import Path
 import shutil
-
-from tinytag import TinyTag
-
 from multiprocessing.synchronize import Semaphore
+from pathlib import Path
+
+from pydub import AudioSegment
+from tinytag import TinyTag
 
 # Prevent spawning too many processes
 EXPORT_SEMAPHORE_COUNT = os.cpu_count() // 2
@@ -23,10 +22,22 @@ def get_bitrate_from_format(out_format: str) -> str | None:
 def transcode_track(
     track_path: Path, out_path: Path, out_format: str, export_semaphore: Semaphore
 ) -> str:
+    in_format = track_path.suffix[1:]
+    new_file = out_path.joinpath(f"{track_path.stem}.{out_format}")
+
+    if new_file.exists():
+        return str(new_file)
+
+    if in_format == out_format:
+        return str(track_path.copy(new_file))
+
+    if in_format == "aif":
+        in_format = "aiff"
+
     with export_semaphore:
-        segment = AudioSegment.from_file(track_path, format=track_path.suffix[1:])
+        segment = AudioSegment.from_file(track_path, format=in_format)
         tags = TinyTag.get(track_path)
-        new_file = out_path.joinpath(f"{track_path.stem}.{out_format}")
+
         segment.export(
             new_file,
             format=out_format,

@@ -2,7 +2,11 @@ from functools import partial
 from multiprocessing import Manager
 from multiprocessing.pool import Pool
 from multiprocessing.synchronize import Semaphore
+from pathlib import Path
+
 from lxml import etree
+from tqdm import tqdm
+
 from handlers import sql as sql_handlers
 from handlers.transcode import EXPORT_SEMAPHORE_COUNT, change_track_location
 from models import (
@@ -15,7 +19,6 @@ from models import (
     KeyType,
     TrackContext,
 )
-from tqdm import tqdm
 from offset_handlers import flush_offset_errors
 from rekordbox_gen import (
     TRACK_COLLECTION,
@@ -35,28 +38,47 @@ def get_track_info(
     out_format: str | None,
     key_type: KeyType,
     export_semaphore: Semaphore,
-) -> tuple[TrackContext, BeatGridInfo | None]:
-    (
-        samplerate,
-        channels,
-        duration,
-        title,
-        artist,
-        album,
-        genre,
-        bpm,
-        beats,
-        beats_version,
-        key_id,
-        rating,
-        colour,
-        track_location,
-    ) = sql_handlers.get_track_info(track_id)
+) -> tuple[TrackContext, BeatGridInfo | None] | None:
+    track_info = sql_handlers.get_track_info(track_id)
+    if track_info:
+        (
+            samplerate,
+            channels,
+            duration,
+            title,
+            artist,
+            album,
+            genre,
+            bpm,
+            beats,
+            beats_version,
+            key_id,
+            rating,
+            colour,
+            track_location,
+        ) = track_info
+    else:
+        return None
+
+    if not Path.exists(track_location):
+        print(f"File not found at {track_location}")
+        return None
 
     if out_dir or out_format:
         track_location = change_track_location(
             track_location, out_dir, out_format, export_semaphore
         )
+    if track_location.endswith(".ogg"):
+        temp_path = Path.home().absolute() / "temp"
+        temp_path.mkdir(exist_ok=True)
+        print(f"{track_location} cannot be read by Rekordbox, converting to .mp3")
+        track_location = change_track_location(
+            track_location,
+            str(temp_path),
+            "mp3",
+            export_semaphore,
+        )
+        print(f"New track created at: {track_location}")
 
     return TrackContext(
         id=track_id,
@@ -102,13 +124,18 @@ def get_exported_track(
     key_type: KeyType,
     export_semaphore: Semaphore,
     track_collection: dict,
-) -> ExportedTrack:
+) -> ExportedTrack | None:
     if track_id in track_collection:
         return track_collection[track_id]
 
-    track_context, beat_grid = get_track_info(
+    track_info = get_track_info(
         track_id, out_dir, out_format, key_type, export_semaphore
     )
+    if not track_info:
+        print(f"No info found for Track {track_id}")
+        return None
+
+    track_context, beat_grid = track_info
     return ExportedTrack(
         id=format_track_id(track_id),
         track_context=track_context,
@@ -141,17 +168,21 @@ def get_data_for_tracks(
     ) as pool:
         return list(
             tqdm(
-                pool.imap(
-                    partial(
-                        get_exported_track,
-                        out_dir=out_dir,
-                        out_format=out_format,
-                        key_type=key_type,
-                        export_semaphore=export_semaphore,
-                        track_collection=track_collection,
-                    ),
-                    track_ids,
-                    chunksize=1 if out_format else 2,
+                (
+                    track
+                    for track in pool.imap(
+                        partial(
+                            get_exported_track,
+                            out_dir=out_dir,
+                            out_format=out_format,
+                            key_type=key_type,
+                            export_semaphore=export_semaphore,
+                            track_collection=track_collection,
+                        ),
+                        track_ids,
+                        chunksize=1 if out_format else 2,
+                    )
+                    if track
                 ),
                 unit="track",
                 total=len(track_ids),

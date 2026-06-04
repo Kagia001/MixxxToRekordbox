@@ -1,7 +1,7 @@
 import functools
-from os import path
 import os
 import sqlite3
+from os import path
 
 from models import CollectionType
 
@@ -52,9 +52,19 @@ def get_mixxx_db_location(custom_db_location: str | None) -> str:
     # MacOS
     if path.exists(r"~/Library/Application Support/Mixxx"):
         return r"~/Library/Application Support/Mixxx/mixxxdb.sqlite"
+    if path.exists(
+        path.expanduser(
+            r"~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/mixxxdb.sqlite"
+        )
+    ):
+        return path.expanduser(
+            r"~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/mixxxdb.sqlite"
+        )
     # Linux
     if path.exists(r"~/.mixxx"):
         return r"~/.mixxx/mixxxdb.sqlite"
+
+    raise Exception("Mixxx DB not found")
 
 
 def set_db_location(db_location: str) -> None:
@@ -95,7 +105,9 @@ def get_cue_points(track_id: str) -> list[sqlite3.Row]:
     )
 
 
-def get_collection_tracks(collection_type: str, collection_id: str) -> list[str]:
+def get_collection_tracks(
+    collection_type: CollectionType, collection_id: str
+) -> list[str]:
     return [
         track[0]
         for track in get_cursor().execute(
@@ -105,5 +117,5 @@ def get_collection_tracks(collection_type: str, collection_id: str) -> list[str]
     ]
 
 
-def get_collections(collection_type: str) -> list[sqlite3.Row]:
+def get_collections(collection_type: CollectionType) -> list[sqlite3.Row]:
     return get_cursor().execute(COLLECTION_QUERY_MAP[collection_type]).fetchall()
